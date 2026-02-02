@@ -10,7 +10,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
 from sqlalchemy.types import TypeDecorator
 from sqlalchemy.exc import SQLAlchemyError
-from config import Config
+from config_manager import Config
 
 logger = logging.getLogger(__name__)
 Base = declarative_base()

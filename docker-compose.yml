@@ -1,17 +1,19 @@
-version: '3.8'
+version: '3.9'
 
 services:
   app:
     build: .
+    command: uvicorn api:app --host 0.0.0.0 --port 8000
     ports:
-      - "8080:8000"
+      - "8000:8000"
     environment:
-      - DB_URL=postgresql://scraper:scraper123@db:5432/mobile_scraper
-      - API_TOKEN=mobile-scraper-2026-secure-token
-      - LOG_LEVEL=INFO
+      - DB_URL=postgresql://scraper:${DB_PASSWORD:-scraper123}@db:5432/mobile_scraper
+      - API_TOKEN=${API_TOKEN:-change-me-in-production}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
       - HEADLESS_MODE=true
-      - MAX_PAGES=5
-      - SCRAPER_DELAY=2
+      - MAX_PAGES=${MAX_PAGES:-5}
+      - SCRAPER_DELAY=${SCRAPER_DELAY:-2}
+      - ENVIRONMENT=${ENVIRONMENT:-development}
     depends_on:
       db:
         condition: service_healthy
@@ -28,11 +30,13 @@ services:
     build: .
     command: python3 worker.py
     environment:
-      - DB_URL=postgresql://scraper:scraper123@db:5432/mobile_scraper
-      - LOG_LEVEL=INFO
+      - DB_URL=postgresql://scraper:${DB_PASSWORD:-scraper123}@db:5432/mobile_scraper
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
       - HEADLESS_MODE=true
-      - MAX_PAGES=5
-      - SCRAPER_DELAY=2
+      - MAX_PAGES=${MAX_PAGES:-5}
+      - SCRAPER_DELAY=${SCRAPER_DELAY:-2}
+      - WORKER_INTERVAL_HOURS=${WORKER_INTERVAL_HOURS:-6}
+      - ENVIRONMENT=${ENVIRONMENT:-development}
     depends_on:
       db:
         condition: service_healthy
@@ -42,12 +46,24 @@ services:
 
   db:
     image: postgres:15-alpine
+    ports:
+      - "5432:5432"
     environment:
       - POSTGRES_DB=mobile_scraper
       - POSTGRES_USER=scraper
-      - POSTGRES_PASSWORD=scraper123
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-scraper123}
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U scraper"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
+
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U scraper"]

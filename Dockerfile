@@ -14,18 +14,18 @@ RUN wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | gpg --dearm
 
 WORKDIR /app
 
-# Copy requirements and install Python dependencies
-COPY requirements_new.txt requirements.txt
+# Copy requirements and install dependencies
+COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
-COPY config.py database.py db_operations.py api.py scraper.py worker.py ./
+COPY config_manager.py database.py db_operations.py api.py scraper_unified.py worker.py ./
 
 # Create logs directory
 RUN mkdir -p logs && chmod 755 logs
 
-# Expose port
+# Create .env if not exists
+RUN touch .env
+
 EXPOSE 8000
 
-# Default command
-CMD ["uvicorn", "api:app", "--host", "0.0.0.0", "--port", "8000"]

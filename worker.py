@@ -1,11 +1,16 @@
 #!/usr/bin/env python3
+"""
+Background scraper worker with scheduled jobs
+Runs scraper at configured intervals
+"""
 
 import os
 import time
 import schedule
 import logging
 from datetime import datetime
-from config import Config
+
+from config_manager import Config
 
 # Setup logging
 logging.basicConfig(
@@ -22,28 +27,28 @@ logger = logging.getLogger(__name__)
 # Create logs directory
 os.makedirs(Config.LOG_DIR, exist_ok=True)
 
+
 def scraper_job():
-    """Run scheduled scraper job"""
+    """Run scheduled scraper batch job"""
     try:
         logger.info("Starting scheduled scraper job")
         
-        # Import here to avoid circular imports
-        from scraper import main as run_scraper
-        run_scraper()
+        from scraper_unified import scrape_batch
+        result = scrape_batch()
         
-        logger.info("Scheduled scraper job completed successfully")
+        logger.info(f"Scraper completed: {result.get('total_cars', 0)} cars scraped")
     except Exception as e:
-        logger.error(f"Scheduled scraper job failed: {e}")
+        logger.error(f"Scheduled scraper failed: {e}")
+
 
 def main():
-    """Main worker function"""
-    logger.info("Worker started - scheduling scraper every 6 hours")
+    """Main worker - runs scraper on schedule"""
+    logger.info(f"Worker started - scheduling scraper every {Config.WORKER_INTERVAL_HOURS} hours")
     
     # Schedule the job
-    schedule.every(6).hours.do(scraper_job)
+    schedule.every(Config.WORKER_INTERVAL_HOURS).hours.do(scraper_job)
     
-    # Run immediately on startup (optional)
-    # scraper_job()
+    logger.info("Worker running, waiting for next scheduled job...")
     
     # Keep the worker running
     while True:

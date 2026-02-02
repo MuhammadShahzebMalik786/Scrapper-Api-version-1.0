@@ -3,10 +3,10 @@ undetected-chromedriver==3.5.5
 beautifulsoup4==4.14.2
 lxml>=4.9.0
 requests>=2.31.0
-sqlalchemy>=1.4.0
+sqlalchemy>=2.0.0
 psycopg2-binary>=2.9.0
 fastapi>=0.104.0
 uvicorn>=0.24.0
-setuptools
 schedule>=1.2.0
 pydantic>=2.0.0
+python-dotenv>=1.0.0
