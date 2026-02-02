@@ -1,0 +1,74 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - DB_URL=postgresql://scraper:scraper123@db:5432/mobile_scraper
+      - API_TOKEN=mobile-scraper-2026-secure-token
+    depends_on:
+      - db
+    volumes:
+      - ./logs:/app/logs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  db-api:
+    build: .
+    command: uvicorn db_api:app --host 0.0.0.0 --port 8001
+    ports:
+      - "8001:8001"
+    environment:
+      - DB_URL=postgresql://scraper:scraper123@db:5432/mobile_scraper
+      - API_TOKEN=mobile-scraper-2026-secure-token
+    depends_on:
+      - db
+    volumes:
+      - ./logs:/app/logs
+    restart: unless-stopped
+
+  worker:
+    build: .
+    command: python3 worker.py
+    environment:
+      - DB_URL=postgresql://scraper:scraper123@db:5432/mobile_scraper
+    depends_on:
+      - db
+    volumes:
+      - ./logs:/app/logs
+    restart: unless-stopped
+
+  db:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_DB=mobile_scraper
+      - POSTGRES_USER=scraper
+      - POSTGRES_PASSWORD=scraper123
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U scraper"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "8080:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+    depends_on:
+      - app
+      - db-api
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
