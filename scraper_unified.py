@@ -77,7 +77,8 @@ class MobileDeScraperUnified:
         try:
             self.driver = uc.Chrome(
                 options=options,
-                driver_executable_path=self.config.CHROMEDRIVER_PATH or None
+                driver_executable_path=self.config.CHROMEDRIVER_PATH or None,
+                version_main=144
             )
             logger.info("Chrome driver initialized")
             return self.driver
