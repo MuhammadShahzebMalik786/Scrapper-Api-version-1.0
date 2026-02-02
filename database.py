@@ -2,12 +2,17 @@
 
 import os
 import json
+import logging
 from datetime import datetime
+from contextlib import contextmanager
 from sqlalchemy import create_engine, Column, Integer, String, Text, DateTime, ForeignKey, pool
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
 from sqlalchemy.types import TypeDecorator
+from sqlalchemy.exc import SQLAlchemyError
+from config import Config
 
+logger = logging.getLogger(__name__)
 Base = declarative_base()
 
 class JSONType(TypeDecorator):
@@ -24,8 +29,8 @@ class Car(Base):
     
     id = Column(Integer, primary_key=True)
     source = Column(String(50), default='mobile.de')
-    listing_id = Column(String(100))
-    url = Column(String(500), unique=True, nullable=False)
+    listing_id = Column(String(100), index=True)
+    url = Column(String(500), unique=True, nullable=False, index=True)
     url_title = Column(String(500))
     additional_info = Column(Text)
     price = Column(String(100))
@@ -57,7 +62,7 @@ class Car(Base):
     co2_class = Column(String(50))
     fuel_consumption = Column(String(100))
     image_urls = Column(JSONType)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     car_features = relationship("CarFeature", back_populates="car", cascade="all, delete-orphan")
@@ -65,12 +70,12 @@ class Car(Base):
 class Feature(Base):
     __tablename__ = 'features'
     id = Column(Integer, primary_key=True)
-    name = Column(String(200), unique=True, nullable=False)
+    name = Column(String(200), unique=True, nullable=False, index=True)
 
 class FeatureSection(Base):
     __tablename__ = 'feature_sections'
     id = Column(Integer, primary_key=True)
-    name = Column(String(200), unique=True, nullable=False)
+    name = Column(String(200), unique=True, nullable=False, index=True)
 
 class CarFeature(Base):
     __tablename__ = 'car_features'
@@ -82,21 +87,65 @@ class CarFeature(Base):
     feature = relationship("Feature")
     section = relationship("FeatureSection")
 
-def get_database_url():
-    return os.getenv('DB_URL', 'sqlite:///mobile_scraper.db')
+class DatabaseManager:
+    """Centralized database management"""
+    
+    def __init__(self):
+        self.engine = None
+        self.SessionLocal = None
+        self._initialize()
+    
+    def _initialize(self):
+        """Initialize database connection"""
+        try:
+            self.engine = create_engine(
+                Config.DB_URL,
+                echo=False,
+                poolclass=pool.QueuePool,
+                pool_size=5,
+                max_overflow=10,
+                pool_pre_ping=True,
+                pool_recycle=3600
+            )
+            self.SessionLocal = sessionmaker(bind=self.engine)
+            Base.metadata.create_all(self.engine)
+            logger.info("Database initialized successfully")
+        except Exception as e:
+            logger.error(f"Database initialization failed: {e}")
+            raise
+    
+    @contextmanager
+    def get_session(self):
+        """Get database session with proper cleanup"""
+        session = self.SessionLocal()
+        try:
+            yield session
+            session.commit()
+        except Exception as e:
+            session.rollback()
+            logger.error(f"Database session error: {e}")
+            raise
+        finally:
+            session.close()
+    
+    def health_check(self) -> bool:
+        """Check database connectivity"""
+        try:
+            with self.get_session() as session:
+                session.execute("SELECT 1")
+            return True
+        except Exception as e:
+            logger.error(f"Database health check failed: {e}")
+            return False
 
-def create_database_engine():
-    db_url = get_database_url()
-    return create_engine(db_url, echo=False, poolclass=pool.QueuePool, pool_size=5, max_overflow=10)
+# Global database manager instance
+db_manager = DatabaseManager()
+
+# Legacy functions for backward compatibility
+def get_session():
+    """Legacy function - use db_manager.get_session() instead"""
+    return db_manager.SessionLocal()
 
 def init_database():
-    engine = create_database_engine()
-    Base.metadata.create_all(engine)
-    return engine
-
-def get_session():
-    engine = init_database()
-    Session = sessionmaker(bind=engine)
-    return Session()
-
-engine = create_database_engine()
+    """Legacy function - database is auto-initialized"""
+    return db_manager.engine

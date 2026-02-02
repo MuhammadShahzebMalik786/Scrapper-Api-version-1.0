@@ -24,7 +24,7 @@ case "$1" in
         echo "Service Status:"
         docker-compose ps
         echo -e "\nAPI Health:"
-        curl -s "$BASE_URL/health" | jq . 2>/dev/null || curl -s "$BASE_URL/health"
+        curl -s "$BASE_URL/health" 2>/dev/null || echo "API not responding"
         ;;
     logs)
         service=${2:-app}
@@ -34,19 +34,19 @@ case "$1" in
     test)
         echo "Testing API endpoints..."
         echo "Health check:"
-        curl -s "$BASE_URL/health" | jq . 2>/dev/null || curl -s "$BASE_URL/health"
+        curl -s "$BASE_URL/health" 2>/dev/null || echo "Health check failed"
         echo -e "\nSystem status:"
-        curl -s "$BASE_URL/" | jq . 2>/dev/null || curl -s "$BASE_URL/"
-        echo -e "\nScraper status:"
-        curl -s "$BASE_URL/status" | jq . 2>/dev/null || curl -s "$BASE_URL/status"
+        curl -s "$BASE_URL/" 2>/dev/null || echo "Status check failed"
+        echo -e "\nDatabase stats:"
+        curl -s "$BASE_URL/stats" 2>/dev/null || echo "Stats check failed"
         ;;
     scrape)
         echo "Starting scraper..."
-        curl -s -X POST -H "Authorization: Bearer $API_TOKEN" "$BASE_URL/populate" | jq . 2>/dev/null || curl -s -X POST -H "Authorization: Bearer $API_TOKEN" "$BASE_URL/populate"
+        curl -s -X POST -H "Authorization: Bearer $API_TOKEN" "$BASE_URL/populate" 2>/dev/null || echo "Scrape trigger failed"
         ;;
     build)
         echo "Building services..."
-        docker-compose build
+        docker-compose build --no-cache
         ;;
     clean)
         echo "Cleaning up..."
